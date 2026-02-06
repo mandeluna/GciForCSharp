@@ -2,7 +2,12 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp9.0</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Link the gcirtlobj.obj file at compile time using GEMSTONE environment variable -->
+    <NativeLibrary Include="$(GEMSTONE)\lib\gcirtlobj.obj" />
+  </ItemGroup>
+  
 </Project>
