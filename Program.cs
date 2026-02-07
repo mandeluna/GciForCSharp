@@ -1,4 +1,7 @@
 ﻿using System;
+using System.IO;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace GCI
 {
@@ -6,7 +9,12 @@ namespace GCI
     {
         static void Main(string[] args)
         {
-            if (LoginExample())
+            var deserializer = new DeserializerBuilder()
+                .WithNamingConvention(CamelCaseNamingConvention.Instance)
+                .Build();
+            var config = deserializer.Deserialize<GciConfig>(File.ReadAllText("config.yml"));
+
+            if (GciLogin(config))
             {
                 Console.WriteLine("Login successful!");
             }
@@ -16,14 +24,14 @@ namespace GCI
             }
         }
 
-        static bool LoginExample()
+        static bool GciLogin(GciConfig config)
         {
-            string stoneName = "guava_ops";
-            string hostUserId = "";
-            string hostPassword = "";
-            string gemService = "!tcp@localhost#netldi:8080#task!gemnetobject";
-            string gsUserName = "SystemUser";
-            string gsPassword = "swordfish";
+            string stoneName = config.StoneName;
+            string hostUserId = config.HostUserId;
+            string hostPassword = config.HostPassword;
+            string gemService = config.GemService;
+            string gsUserName = config.GsUserName;
+            string gsPassword = config.GsPassword;
 
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GEMSTONE")))
             {

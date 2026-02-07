@@ -5,6 +5,20 @@ using System.IO;
 namespace GCI
 {
     /// <summary>
+    /// Configuration model for GemStone GCI login parameters, 
+    /// designed to be populated from config.yml.
+    /// </summary>
+    public class GciConfig
+    {
+        public string StoneName { get; set; } = "stone";
+        public string HostUserId { get; set; }
+        public string HostPassword { get; set; }
+        public string GemService { get; set; } = "gemnetobject";
+        public string GsUserName { get; set; } = "SystemUser";
+        public string GsPassword { get; set; }
+    }
+
+    /// <summary>
     /// Struct representing GciErrSType from gci.hf
     /// </summary>
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]

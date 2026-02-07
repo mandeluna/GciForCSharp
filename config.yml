@@ -1,0 +1,15 @@
+# GemStone/S GCI Connection Configuration
+
+# The name of the Stone (e.g., 'gs64stone' or 'stone')
+stoneName: "guava_ops"
+
+# Remote Host Authentication (leave as null if running locally or using .netrc)
+hostUserId: null
+hostPassword: null
+
+# The NetLDI service name (default is usually 'gemnetobject')
+gemService: "!tcp@localhost#netldi:8080#task!gemnetobject"
+
+# GemStone Database Credentials
+gsUserName: "SystemUser"
+gsPassword: "swordfish"

@@ -9,5 +9,9 @@
     <!-- Link the gcirtlobj.obj file at compile time using GEMSTONE environment variable -->
     <NativeLibrary Include="$(GEMSTONE)\lib\gcirtlobj.obj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
   
 </Project>
