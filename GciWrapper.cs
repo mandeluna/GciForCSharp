@@ -38,7 +38,8 @@ namespace GCI
                     return IntPtr.Zero;
                 }
 
-                string binPath = Path.Combine(gemstonePath, "bin");
+                string libDirectory = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "bin" : "lib";
+                string binPath = Path.Combine(gemstonePath, libDirectory);
                 
                 // Search for DLL with wildcard to handle version numbers in filename
                 // e.g., libgcirpc-3.7.4.3-64.dll
