@@ -17,6 +17,31 @@ namespace GCI
             if (GciLogin(config))
             {
                 Console.WriteLine("Login successful!");
+
+                long resultOop = GciWrapper.Execute("^7 * 6");
+
+                if (resultOop == GciWrapper.OOP_NIL)
+                {
+                    if (GciWrapper.GciErr(out GciErrSType err))
+                    {
+                        Console.WriteLine($"Execution Error: {err.message}");
+                    }
+                    return;
+                }
+
+                // 3. Convert the Smalltalk result (Integer) to a C# int
+                int val = GciWrapper.GciOopToI32_(resultOop, out bool conversionErr);
+
+                if (conversionErr)
+                {
+                    Console.WriteLine("Error converting result to C# int");
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine($"Result = {val}");
+                    return;
+                }
             }
             else
             {
