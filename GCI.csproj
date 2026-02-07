@@ -1,17 +1,29 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp9.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Ensure we are targeting 64-bit to match GemStone 64 libraries -->
+    <Platforms>AnyCPU;x64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Link the gcirtlobj.obj file at compile time using GEMSTONE environment variable -->
-    <NativeLibrary Include="$(GEMSTONE)\lib\gcirtlobj.obj" />
+    <!-- Required for reading config.yml -->
+    <PackageReference Include="YamlDotNet" Version="15.1.2" />
+    
+    <!-- Standard ASP.NET Core Open API support -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <!-- 
+      If you are statically linking gcirtlobj or need to ensure 
+      the native DLLs are present in the output folder, 
+      you can add CopyToOutputDirectory instructions here.
+    -->
   </ItemGroup>
-  
+
 </Project>
