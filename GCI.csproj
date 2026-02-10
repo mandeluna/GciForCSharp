@@ -11,10 +11,11 @@
 
   <ItemGroup>
     <!-- Required for reading config.yml -->
+    <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.0" />
     <PackageReference Include="YamlDotNet" Version="15.1.2" />
     
     <!-- Standard ASP.NET Core Open API support -->
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
@@ -25,5 +26,9 @@
       you can add CopyToOutputDirectory instructions here.
     -->
   </ItemGroup>
+
+  <ItemGroup>
+  		<ProjectReference Include="./CCKINF2U" />
+  </ItemGroup> 
 
 </Project>

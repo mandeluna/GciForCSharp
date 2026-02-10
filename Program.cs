@@ -1,19 +1,21 @@
 ﻿using GCI;
+using CCKInf2U.Interop;
+using Microsoft.Extensions.Options;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Bind the GciConfig section from appsettings.json (or other config sources)
-// Example appsettings.json structure:
-// "GciConfig": {
-//   "StoneName": "gs64stone",
-//   "GsUserName": "DataCurator",
-//   "Pool": { "MaxSessions": 5 }
-// }
-builder.Services.Configure<GciConfig>(
-    builder.Configuration.GetSection("GciConfig"));
+// 1. Load config.yml
+var yamlContent = File.ReadAllText("config.yml");
+var deserializer = new DeserializerBuilder()
+    .WithNamingConvention(CamelCaseNamingConvention.Instance)
+    .Build();
+var gciConfig = deserializer.Deserialize<GciConfig>(yamlContent);
 
-// 2. Register the GemStoneService as a Singleton.
-// The DI container will automatically inject IOptions<GciConfig> into the constructor.
+// 2. DI Registration
+builder.Services.AddSingleton(Options.Create(gciConfig));
 builder.Services.AddSingleton<GemStoneService>();
 
 builder.Services.AddControllers();
@@ -22,14 +24,87 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// 3. Pipeline Configuration
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(); // Access at /swagger
 }
 
-app.UseHttpsRedirection();
-app.UseAuthorization();
+// Redirect root (/) to Swagger or a default status page to avoid the middleware error
+app.MapGet("/", () => Results.Redirect("/swagger"));
+
 app.MapControllers();
 
 app.Run();
+
+// --- Main GemStone API Controller ---
+
+[ApiController]
+[Route("api/[controller]")]
+public class GemStoneController : ControllerBase
+{
+    private readonly GemStoneService _gs;
+
+    public GemStoneController(GemStoneService gs)
+    {
+        _gs = gs;
+    }
+
+    /// <summary>
+    /// HTTP GET: Maps to a Read-Only transaction (Begin -> Execute -> Abort)
+    /// </summary>
+    [HttpGet("execute")]
+    public async Task<IActionResult> ExecuteRead([FromQuery] string code)
+    {
+        if (string.IsNullOrEmpty(code)) return BadRequest("Smalltalk code is required.");
+
+        try
+        {
+            // We use the read-only variant to avoid commit overhead
+            var jsonResult = await _gs.CallReadOnlyAsync(code);
+            return Content(jsonResult, "application/json");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// HTTP POST: Maps to a Read-Write transaction (Begin -> Execute -> Commit)
+    /// </summary>
+    [HttpPost("execute")]
+    public async Task<IActionResult> ExecuteWrite([FromBody] string code)
+    {
+        if (string.IsNullOrEmpty(code)) return BadRequest("Smalltalk code is required.");
+
+        try
+        {
+            // We use the read-write variant to ensure persistence
+            var jsonResult = await _gs.CallReadWriteAsync(code);
+            return Content(jsonResult, "application/json");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Status check to verify connectivity
+    /// </summary>
+    [HttpGet("status")]
+    public async Task<IActionResult> GetStatus()
+    {
+        try 
+        {
+            var time = await _gs.CallReadOnlyAsync("DateTime now printString");
+            return Ok(new { status = "Connected", gemStoneTime = time });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(503, new { status = "Disconnected", error = ex.Message });
+        }
+    }
+}

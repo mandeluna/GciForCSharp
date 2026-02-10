@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<LangVersion>preview</LangVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Label="DefaultWarningSuppression">
+		<NoWarn>$(NoWarn);CS1591;IDE1006</NoWarn>
+	</PropertyGroup>
+	<!-- After .NET 5 some globalization had breaking changes this reverts them
+	See https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu -->
+	<ItemGroup>
+		<RuntimeHostConfigurationOption Include="System.Globalization.UseNls" Value="true" />
+	</ItemGroup>
+</Project>

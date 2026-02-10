@@ -1,0 +1,115 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<ProjectType>Local</ProjectType>
+		<MyType>Windows</MyType>
+		<ProductVersion>9.0.30729</ProductVersion>
+		<ProjectGuid>{55870F23-DF10-01CD-0CA2-0982532FFC6C}</ProjectGuid>
+		<AssemblyMajorVersion>2</AssemblyMajorVersion>
+		<AssemblyMinorVersion>14</AssemblyMinorVersion>
+		<AssemblyRevisionNumber>12</AssemblyRevisionNumber>
+		<GenerateRevisionNumber>True</GenerateRevisionNumber>
+		<AssemblyCompanyName>CCK Treasury Systems</AssemblyCompanyName>
+		<FileUpgradeFlags />
+		<UpgradeBackupLocation />
+		<TargetFramework>net9.0</TargetFramework>
+		<PublishUrl>http://localhost/CCKInf2U/</PublishUrl>
+		<Install>true</Install>
+		<InstallFrom>Web</InstallFrom>
+		<UpdateEnabled>true</UpdateEnabled>
+		<UpdateMode>Foreground</UpdateMode>
+		<UpdateInterval>7</UpdateInterval>
+		<UpdateIntervalUnits>Days</UpdateIntervalUnits>
+		<UpdatePeriodically>false</UpdatePeriodically>
+		<UpdateRequired>false</UpdateRequired>
+		<MapFileExtensions>true</MapFileExtensions>
+		<ApplicationRevision>0</ApplicationRevision>
+		<ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+		<IsWebBootstrapper>true</IsWebBootstrapper>
+		<UseApplicationTrust>false</UseApplicationTrust>
+		<BootstrapperEnabled>true</BootstrapperEnabled>
+		<DefaultItemExcludes>$(DefaultItemExcludes);$(ProjectDir)**\*.vb</DefaultItemExcludes>
+		<LangVersion>preview</LangVersion>
+		<AssemblyTitle>CCKInf2U</AssemblyTitle>
+		<Company>CCK Financial Solutions</Company>
+		<Product>Guava Dealer/Risk</Product>
+		<Copyright>Copyright ©  2010</Copyright>
+		<AssemblyVersion>3.5.0.3</AssemblyVersion>
+		<FileVersion>3.5.0.3</FileVersion>
+		<DefineConstants />
+		<DocumentationFile>.\bin\CCKInf2U.xml</DocumentationFile>
+		<OutputPath>.\bin\</OutputPath>
+		<DefineTrace>True</DefineTrace>
+		<NoWarn>42016,42017,42018,42019,42032,42353,42354,42355,CS1591</NoWarn>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+		<DefineDebug>True</DefineDebug>
+		<DebugType>full</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+		<DefineDebug>False</DefineDebug>
+		<DebugType>pdbonly</DebugType>
+	</PropertyGroup>
+	<PropertyGroup>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Import Include="System" />
+		<Import Include="System.Diagnostics" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Util\Util.csproj" />
+		<ProjectReference Include="..\SparkSupport\SparkSupport.csproj" />
+		<Using Include="Util.Extensions" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+	</PropertyGroup>
+
+	<PropertyGroup Label="InteropCompilation">
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<!-- Pick one. Not both. :) -->
+		<!--<DefineConstants>$(DefineConstants);LEGACY;</DefineConstants>-->
+		<DefineConstants>$(DefineConstants);THREADSAFE;</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(DefineConstants.Contains(`;LEGACY;`))'" Label="InteropCompilation">
+		<None Include="..\CCKDLLS\LooseDLLs\RT.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<PropertyGroup Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Label="InteropCompilation">
+		<DefaultItemExcludes>$(DefaultItemExcludes);Legacy/*.*;Interop/RT.cs;</DefaultItemExcludes>
+		<Visible>false</Visible>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Label="InteropCompilation">
+		<None Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libgcits-3.7.4.3-64.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</None>
+		<None Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libssl-3.7.4.3-64.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</None>
+		<None Include="..\CCKDLLS\GemBuilderC_3.7.4.3\msvcr100.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</None>
+	</ItemGroup>
+
+	<PropertyGroup Label="DefaultWarningSuppression">
+		<NoWarn>$(NoWarn);CS1591;IDE1006</NoWarn>
+	</PropertyGroup>
+	<!-- After .NET 5 some globalization had breaking changes this reverts them
+	See https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu -->
+	<ItemGroup>
+		<RuntimeHostConfigurationOption Include="System.Globalization.UseNls" Value="true" />
+	</ItemGroup>
+</Project>

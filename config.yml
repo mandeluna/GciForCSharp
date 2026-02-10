@@ -13,3 +13,5 @@ gemService: "!tcp@localhost#netldi:8080#task!gemnetobject"
 # GemStone Database Credentials
 gsUserName: "SystemUser"
 gsPassword: "swordfish"
+
+hostname: "localhost"

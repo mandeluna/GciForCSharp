@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<WarningsAsErrors>CS8600;CS8601;CS8602;CS8604;CS8613;CS8614;CS8619;CS8620;CS8622;CS8625;CS8629;CS8633;CS8524;CS8509;CS8524;CS8767</WarningsAsErrors>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<LangVersion>12</LangVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Label="DefaultWarningSuppression">
+		<NoWarn>$(NoWarn);CS1591;IDE1006</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />
+	</ItemGroup>
+	<!-- After .NET 5 some globalization had breaking changes this reverts them
+	See https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu -->
+	<ItemGroup>
+		<RuntimeHostConfigurationOption Include="System.Globalization.UseNls" Value="true" />
+	</ItemGroup>
+</Project>
