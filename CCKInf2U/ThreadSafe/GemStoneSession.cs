@@ -1,17 +1,10 @@
-using CCKCOMPONENTS;
 using CCKInf2U.ThreadSafe;
-using CCKUTIL2;
-using CCKXTIMERS;
-using Microsoft.Extensions.Logging;
 using SparkSupport;
-using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
 using static CCKInf2U.Interop.GciConstants;
 
 namespace CCKInf2U;
@@ -19,7 +12,7 @@ namespace CCKInf2U;
 [SkipLocalsInit]
 public sealed class GemStoneSession
 {
-	public CCKLogNameHolder LogNameHolder;
+	public string LogNameHolder;
 	private bool enableTylersLogChanges = true;
 
 	#region New API
@@ -101,23 +94,6 @@ public sealed class GemStoneSession
 		{
 			LastError = errorData;
 		}
-
-		if (false)
-		{
-			ExecuteString($"System beginTransaction ");
-			ExecuteString($"Published at:#SparkException put: (nil objectWithOop: {errorData.ExceptionObj}). ");
-			ExecuteString($"System commitTransaction ");
-		}
-
-		if (ShouldLogGemStoneErrors)
-		{
-			// ! This code should only be used in debug builds, but we'll include it in release for now.
-			_logger.LogEvent(
-				LastError.When,
-				CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-				CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_INFO,
-				$"GemStone Error logged - {LastError.Number}: {LastError.Message}");
-		}
 #nullable restore
 	}
 
@@ -127,13 +103,6 @@ public sealed class GemStoneSession
 #nullable enable
 
 		var errorData = GetGemstoneError(error);
-
-		if (false)
-		{
-			ExecuteString($"System beginTransaction ");
-			ExecuteString($"Published at:#SparkException put: (nil objectWithOop: {errorData.ExceptionObj}). ");
-			ExecuteString($"System commitTransaction ");
-		}
 
 		if (errorData.Number is not 6003 and not 6004)
 		{
@@ -150,10 +119,10 @@ public sealed class GemStoneSession
 			if (ShouldLogGemStoneErrors)
 			{
 				// ! This code should only be used in debug builds, but we'll include it in release for now.
-				_logger.LogEvent(
+				FileBasedLogger.LogEvent(
 					LastError.When,
-					CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-					CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_INFO,
+					FileBasedLogger.System,
+					FileBasedLogger.Info,
 					$"GemStone Error logged - {LastError.Number}: {LastError.Message}");
 			}
 		}
@@ -200,37 +169,11 @@ public sealed class GemStoneSession
 
 	#region Legacy API
 
+	/** swart 2026-02-10 remove disconnect timer **/
+
 	public event DisconnectedEventHandler Disconnected;
 
 	public delegate void DisconnectedEventHandler(object sender);
-
-	private CCKXTIMERS.IXTimer _disTimer;
-
-	private CCKXTIMERS.IXTimer DisTimer
-	{
-		[MethodImpl(MethodImplOptions.Synchronized)]
-		get { return _disTimer; }
-
-		[MethodImpl(MethodImplOptions.Synchronized)]
-		set
-		{
-			if (_disTimer != null)
-			{
-				_disTimer.Tick -= DisTimer_Tick;
-			}
-
-			_disTimer = value;
-			if (_disTimer != null)
-			{
-				_disTimer.Tick += DisTimer_Tick;
-			}
-
-			void DisTimer_Tick()
-			{
-				_ = Interlocked.Exchange(ref _badSessionCounter, 0);
-			}
-		}
-	}
 
 	private bool _error = false;
 
@@ -275,7 +218,6 @@ public sealed class GemStoneSession
 		set { _processAborts = value; }
 	}
 
-	public ILogger<GemStoneSession>? Logger { get; set; }
 	public OpsMetrics? OpsMeter { get; set; }
 
 	private readonly CCKLog _logger;
@@ -283,21 +225,14 @@ public sealed class GemStoneSession
 	private int _badSessionCounter;
 	private bool _processAborts = true;
 
-	public static GemStoneSession CreateGemStoneConnection(CCKLogNameHolder lsLogName, [MaybeNull] AtomicAccessLock accessLock)
+	public static GemStoneSession CreateGemStoneConnection([MaybeNull] AtomicAccessLock accessLock)
 	{
 		// TODO(AB): Revisit then when creating the switch between legacy and threadsafe
-		return new (lsLogName, accessLock);
+		return new (accessLock);
 	}
 
-	internal GemStoneSession( CCKLogNameHolder lsLogName,[MaybeNull] AtomicAccessLock accessLock)
+	internal GemStoneSession([MaybeNull] AtomicAccessLock accessLock)
 	{
-		LogNameHolder = lsLogName;
-		_logger = 
-			new (LogNameHolder)
-			{
-				sFileName = "Epinf2Error.log",
-				bQuietMode = false,
-			};
 		if (accessLock is not null)
 		{
 			DisTimer =
@@ -652,7 +587,7 @@ public sealed class GemStoneSession
 			_activity?.AddTag("sessionid", SessionId);
 		}
 
-		Logger?.LogInformation("Auto begining Gemstone transaction.");
+		FileBasedLogger.LogInformation("Auto begining Gemstone transaction.");
 		return commitSuccessful;
 	}
 
@@ -712,13 +647,12 @@ public sealed class GemStoneSession
 	public string CheckError(
 		ref bool isError,
 		bool isQuiet = false,
-		CCKLog inLogger = null,
 		bool showLowLevelErrors = false
 	)
 	{
 		if (HasError)
 		{
-			var anError = ProcessError(ref isError, isQuiet, inLogger, showLowLevelErrors);
+			var anError = ProcessError(ref isError, isQuiet, null, showLowLevelErrors);
 			return anError;
 		}
 
@@ -727,7 +661,7 @@ public sealed class GemStoneSession
 	}
 
 	[MethodImpl(MethodImplOptions.NoInlining)]
-	private unsafe string ProcessError(ref bool isError, bool isQuiet, CCKLog inLogger, bool showLowLevelErrors)
+	private unsafe string ProcessError(ref bool isError, bool isQuiet, bool showLowLevelErrors)
 	{
 		// TODO(AB): Return value of this is only ever used in user management - clear that up and return void instead.
 		// TODO(AB): Replace the existing error handling process with something more robust.
@@ -753,43 +687,28 @@ public sealed class GemStoneSession
 		Debug.Print($"CheckError= {errorNumber}  Msg= {gemStoneErrorMessage}");
 		#endif
 
-		var logger = inLogger ?? _logger;
-
 		if (errorNumber is > 4000 and < 5000)
 		{
-			string OnSessionDisconection()
+			isError = true;
+			_ = Interlocked.Add(ref _badSessionCounter, 1);
+
+			// The 4xxx range of errors represent fatal errors.
+			// TODO(AB): Highly doubt the handling below is sufficient as the majority of the error descriptions
+			// seem very fatal. To address later.
+			bool isFatalCode = errorNumber is 4059 or 4052;
+    		bool isThresholdReached = _badSessionCounter >= 100;
+
+			if (isFatalCode || isThresholdReached)
 			{
-				string message;
-				message =
+				string message =
 					$"""
 					 Connection with the backoffice has been lost. The server may be down or the session may have been terminated forcibly!
 					 {gemStoneErrorMessage}
 					 Please restart the application!
 					 """;
 
-				logger.LogEvent(
-					DateTime.Now,
-					CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-					CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_ERROR,
-					message);
-
 				Disconnected?.Invoke(this);
-				return message;
-			}
-			// The 4xxx range of errors represent fatal errors.
-			// TODO(AB): Highly doubt the handling below is sufficient as the majority of the error descriptions
-			// seem very fatal. To address later.
-
-			_ = Interlocked.Add(ref _badSessionCounter, 1);
-			isError = true;
-			if (errorNumber is 4059 or 4052)
-			{
-				return OnSessionDisconection();
-			}
-
-			if (_badSessionCounter == 100)
-			{
-				return OnSessionDisconection();
+				throw new GemStoneException(errorNumber, message);
 			}
 
 			return null;
@@ -798,15 +717,9 @@ public sealed class GemStoneSession
 		// REFACTOR NOTE(AB): Inverting show low level feels off.
 		if (!showLowLevelErrors && errorNumber is 2010 or 2101 or 2103 or 2106 or 2404)
 		{
-			var errorMessage = $"Guava Ops exception {errorNumber} received: {gemStoneErrorMessage}";
-			logger?.LogEvent(
-				DateTime.Now,
-				CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-				CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_INFO,
-				errorMessage);
-
 			isError = true;
-			return errorMessage;
+			var errorMessage = $"Guava Ops exception {errorNumber} received: {gemStoneErrorMessage}";
+			throw new GemStoneException(errorNumber, gemStoneErrorMessage);
 		}
 		else if (errorNumber == 6008)
 		{
@@ -899,24 +812,15 @@ public sealed class GemStoneSession
 			exceptionI,
 			currentError.Context,
 			eventMessage,
-			logger,
 			isQuiet,
 			ref isError);
 
 		string GemstoneErrorOccured(ref bool errorFlag)
 		{
 			eventMessage = $"Gemstone error occured: {eventMessage}{gemStoneErrorMessage}";
-
-			logger.LogEvent(
-				DateTime.Now,
-				CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-				CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_ERROR,
-				eventMessage);
-
 			errorFlag = true;
-			return eventMessage;
+			throw new GemStoneException(errorNumber, eventMessage);
 		}
-
 
 		string StandardNonExceptionErrorMessage(ref bool errorFlag)
 		{ 
@@ -925,16 +829,9 @@ public sealed class GemStoneSession
 			EnableSignaledAbortError();
 
 			eventMessage = $" Network/session disconnection error.{eventMessage}{gemStoneErrorMessage}";
-
-			logger.LogEvent(
-				DateTime.Now,
-				CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-				CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_ERROR,
-				eventMessage);
-
 			errorFlag = true;
 			Disconnected?.Invoke(this);
-			return eventMessage;
+			throw new GemStoneException(errorNumber, eventMessage);
 		}
 	}
 
@@ -942,7 +839,6 @@ public sealed class GemStoneSession
 		GemStoneObject exceptionI,
 		Oop process,
 		string baseEventMessage,
-		CCKLog logger,
 		bool isQuiet,
 		ref bool isError
 	)
@@ -956,15 +852,11 @@ public sealed class GemStoneSession
 
 			if (IsQuiet || IsQuietACS)
 			{
-				logger.LogEvent(
-					DateTime.Now,
-					CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-					CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_ERROR,
-					eventMessage);
+				FileBasedLogger.SystemError(eventMessage);
 			}
 			else
 			{
-				_ = _logger.CCKMsgBox.WrappedMsgBox(eventMessage, CCKMsgBox.WrappedMsgBoxStyle.Critical, "Guava Ops Error");
+				throw new GemStoneException(errorNumber, eventMessage);
 			}
 
 			isError = true;
@@ -978,15 +870,11 @@ public sealed class GemStoneSession
 
 			if (isQuiet || IsQuietACS)
 			{
-				logger.LogEvent(
-					DateTime.Now,
-					CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_DATA,
-					CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_WARNING,
-					eventMessage);
+				FileBasedLogger.DataWarning(eventMessage);
 			}
 			else
 			{
-				_ = _logger.CCKMsgBox.WrappedMsgBox(eventMessage, CCKMsgBox.WrappedMsgBoxStyle.Exclamation);
+				throw new GemStoneException(errorNumber, eventMessage);
 			}
 
 			OpsWarningEvent?.Invoke(eventMessage, CurrentUser, (IsQuiet || IsQuietACS));
@@ -998,15 +886,11 @@ public sealed class GemStoneSession
 
 			if (isQuiet || IsQuietACS)
 			{
-				logger.LogEvent(
-					DateTime.Now,
-					CCKConstants.CCK_ENUM_ERROR_CATEGORY.CCK_ENUM_ERROR_CATEGORY_SYSTEM,
-					CCKConstants.CCK_ENUM_ERROR_TYPE.CCK_ENUM_ERROR_TYPE_INFO,
-					eventMessage);
+				FileBasedLogger.LogEvent(DateTime.Now, FileBasedLogger.System, FileBasedLogger.Info, eventMessage);
 			}
 			else
 			{
-				_ = _logger.CCKMsgBox.WrappedMsgBox(eventMessage, CCKMsgBox.WrappedMsgBoxStyle.Exclamation);
+				throw new GemStoneException(errorNumber, eventMessage);
 			}
 
 			return eventMessage;

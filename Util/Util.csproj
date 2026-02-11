@@ -15,6 +15,8 @@
 
 	<ItemGroup>
 	  <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.2" />
+	  <PackageReference Include="Serilog" Version="4.3.1" />
+	  <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 	</ItemGroup>
 	<!-- After .NET 5 some globalization had breaking changes this reverts them
 	See https://learn.microsoft.com/en-us/dotnet/core/extensions/globalization-icu -->

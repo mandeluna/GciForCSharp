@@ -78,6 +78,11 @@
 		<DefineConstants>$(DefineConstants);THREADSAFE;</DefineConstants>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<Compile Remove="Legacy/**/*.cs" Condition="$(DefineConstants.Contains('THREADSAFE'))"/>
+		<Compile Remove="ThreadSafe/**/*.cs" Condition="$(DefineConstants.Contains('LEGACY'))"/>
+	</ItemGroup>
+
 	<ItemGroup Condition="'$(DefineConstants.Contains(`;LEGACY;`))'" Label="InteropCompilation">
 		<None Include="..\CCKDLLS\LooseDLLs\RT.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
