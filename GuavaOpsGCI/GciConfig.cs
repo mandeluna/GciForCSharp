@@ -1,6 +1,4 @@
-using System;
-
-namespace GCI
+namespace GuavaOpsGCI
 {
     /// <summary>
     /// Settings for the GCI session pool managed by the GemStoneService.
@@ -20,14 +18,17 @@ namespace GCI
         public string StoneName { get; set; } = string.Empty;
         
         // Host OS credentials (if required by the Gem service)
-        public string HostUserId { get; set; } = string.Empty;
+        public string HostUserName { get; set; } = string.Empty;
         public string HostPassword { get; set; } = string.Empty;
 
         public string HostName { get; set; } = string.Empty;
         
         // The Gem service name/port (e.g., 'gemnetobject' or '!@localhost/netldi:50378')
-        public string GemService { get; set; } = string.Empty;
-        
+        // THe Gem service and NetLDI NRS will be constructed by the GemStoneSession
+        // e.g. !tcp@${Host}#netldi:${NetLDI}#task!gemnetobject
+        public string StoneServer { get; set; } = string.Empty;
+        public string NetLDI { get; set; } = "50378";
+
         // GemStone database credentials
         public string GsUserName { get; set; } = string.Empty;
         public string GsPassword { get; set; } = string.Empty;

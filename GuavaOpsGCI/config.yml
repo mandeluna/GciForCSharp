@@ -4,14 +4,15 @@
 stoneName: "guava_ops"
 
 # Remote Host Authentication (leave as null if running locally or using .netrc)
-hostUserId: null
+hostUserName: null
 hostPassword: null
 
 # The NetLDI service name (default is usually 'gemnetobject')
-gemService: "!tcp@localhost#netldi:8080#task!gemnetobject"
+hostName: "localhost"
+netLDI: "8080"
 
 # GemStone Database Credentials
 gsUserName: "SystemUser"
 gsPassword: "swordfish"
 
-hostname: "localhost"
+stoneServer: "localhost"

@@ -1,18 +1,19 @@
-using CCKInf2U.ThreadSafe;
 using SparkSupport;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System;
+using System.Threading;
+using Util;
 using static CCKInf2U.Interop.GciConstants;
 
-namespace CCKInf2U;
+namespace CCKInf2U.ThreadSafe;
 
 [SkipLocalsInit]
 public sealed class GemStoneSession
 {
-	public string LogNameHolder;
 	private bool enableTylersLogChanges = true;
 
 	#region New API
@@ -94,6 +95,23 @@ public sealed class GemStoneSession
 		{
 			LastError = errorData;
 		}
+
+		if (false)
+		{
+			ExecuteString($"System beginTransaction ");
+			ExecuteString($"Published at:#SparkException put: (nil objectWithOop: {errorData.ExceptionObj}). ");
+			ExecuteString($"System commitTransaction ");
+		}
+
+		if (ShouldLogGemStoneErrors)
+		{
+			// ! This code should only be used in debug builds, but we'll include it in release for now.
+			FileBasedLogger.LogEvent(
+				LastError.When,
+				LOG_ENUM_ERROR_CATEGORY.System,
+				LOG_ENUM_ERROR_TYPE.Info,
+				$"GemStone Error logged - {LastError.Number}: {LastError.Message}");
+		}
 #nullable restore
 	}
 
@@ -103,6 +121,13 @@ public sealed class GemStoneSession
 #nullable enable
 
 		var errorData = GetGemstoneError(error);
+
+		if (false)
+		{
+			ExecuteString($"System beginTransaction ");
+			ExecuteString($"Published at:#SparkException put: (nil objectWithOop: {errorData.ExceptionObj}). ");
+			ExecuteString($"System commitTransaction ");
+		}
 
 		if (errorData.Number is not 6003 and not 6004)
 		{
@@ -121,8 +146,8 @@ public sealed class GemStoneSession
 				// ! This code should only be used in debug builds, but we'll include it in release for now.
 				FileBasedLogger.LogEvent(
 					LastError.When,
-					FileBasedLogger.System,
-					FileBasedLogger.Info,
+					LOG_ENUM_ERROR_CATEGORY.System,
+					LOG_ENUM_ERROR_TYPE.Info,
 					$"GemStone Error logged - {LastError.Number}: {LastError.Message}");
 			}
 		}
@@ -169,12 +194,16 @@ public sealed class GemStoneSession
 
 	#region Legacy API
 
-	/** swart 2026-02-10 remove disconnect timer **/
-
 	public event DisconnectedEventHandler Disconnected;
 
 	public delegate void DisconnectedEventHandler(object sender);
 
+	// SW 2026-02-10 replace WinForms disconnect timer 
+	// The original implementation used [MethodImpl(MethodImplOptions.Synchronized)] and
+	// a complex setter primarily because the old WinForms timer was unreliable
+	// in multi-threaded scenarios and required careful event unhooking to avoid memory leaks
+	// and cross-thread exceptions. With the new SparkXTimer handling the synchronization
+	// internally via the accessLock, that overhead is redundant.
 	private bool _error = false;
 
 	public bool Error
@@ -220,8 +249,6 @@ public sealed class GemStoneSession
 
 	public OpsMetrics? OpsMeter { get; set; }
 
-	private readonly CCKLog _logger;
-
 	private int _badSessionCounter;
 	private bool _processAborts = true;
 
@@ -231,26 +258,29 @@ public sealed class GemStoneSession
 		return new (accessLock);
 	}
 
+	/** SW 2026-02-11 removed WinForms-based timer **/ 
+	private readonly IXTimer _disTimer;
+
 	internal GemStoneSession([MaybeNull] AtomicAccessLock accessLock)
 	{
-		if (accessLock is not null)
+		// TODO(SW): We probably don't want a disconnect timer running for server-side applications
+		// If accessLock is provided, we use it to synchronize timer ticks
+		object lockObject = accessLock ?? new object();
+
+		_disTimer = new SparkXTimer(lockObject, "DisTimer")
 		{
-			DisTimer =
-				new SparkXTimer(accessLock, "DisTimer")
-				{
-					Interval = 64_000,
-					Enabled = true,
-				};
-		}
-		else
+			Interval = 64_000,
+			Enabled = true,
+		};
+		
+		// Attach the "Forgive" logic directly
+		// This will only execute when the accessLock is acquired by the timer
+		_disTimer.Tick += () => 
 		{
-			DisTimer =
-				new XTimer()
-				{
-					Interval = 64_000,
-					Enabled = true,
-				};
-		}
+			Interlocked.Exchange(ref _badSessionCounter, 0);
+			// If you later need to add 'GciAbort' to clean up hung sessions, 
+			// you would do it here.
+		};
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -359,27 +389,28 @@ public sealed class GemStoneSession
 
 	#region Login / Logout
 
-	public bool LoginAsRootSubscriber(GemStoneLoginData loginData)
+	// SW 2026-02-11 Remove dependency on CCKConstants
+	public bool LoginAsRootSubscriber(GemStoneLoginData loginData, string rootUser, string rootPass)
 	{
-		var rootSubscriberLoginData =
-			loginData with
-			{
-				Username = CCKConstants.GetRootSubscriberUserName(),
-				Password = CCKConstants.GetRootSubscriberPassword(),
-			};
+		// We use 'with' to clone the existing data but override the security fields
+		var rootData = loginData with 
+		{ 
+			Username = rootUser, 
+			Password = rootPass 
+		};
 
-		return Login(rootSubscriberLoginData);
+		return Login(rootData);
 	}
-
+	
 	public bool LoginAsUser(GemStoneLoginData loginData)
 	{
-		var isLogedIn = Login(loginData);
-		if (isLogedIn)
+		var isLoggedIn = Login(loginData);
+		if (isLoggedIn)
 		{
 			CurrentUser = loginData.Username;
 		}
 
-		return isLogedIn;
+		return isLoggedIn;
 	}
 
 	private bool Login(GemStoneLoginData loginData)
@@ -467,6 +498,7 @@ public sealed class GemStoneSession
 	internal readonly ActivitySource TransactionLevelActivitySource = new ActivitySource("Ops");
 	internal Activity? _activity;
 	private int _transactionCount = 0;
+	private bool _disposed = false;
 
 	public int TransactionCount()
 	{
@@ -479,10 +511,10 @@ public sealed class GemStoneSession
 		_activity?.Dispose();
 		_activity =
 			TransactionLevelActivitySource
-				.StartActivity("<<<<< Begining Gemstone Transaction on {sessionid} >>>>>");
+				.StartActivity("<<<<< Beginning Gemstone Transaction on {sessionid} >>>>>");
 
 		_activity?.AddTag("sessionid", SessionId);
-		Logger?.LogInformation("Begining Gemstone transaction.");
+		FileBasedLogger.LogInformation("Beginning Gemstone transaction.");
 
 		_ = Execute("Treasury prepareForBegin"u8); // TODO(CCK-3228): Is this necessary?
 
@@ -519,12 +551,12 @@ public sealed class GemStoneSession
 		{
 			_activity =
 				TransactionLevelActivitySource
-					.StartActivity("<<<<< Begining AUTOMATIC Gemstone Transaction on {sessionid} >>>>>");
+					.StartActivity("<<<<< Beginning AUTOMATIC Gemstone Transaction on {sessionid} >>>>>");
 
 			_activity?.AddTag("sessionid", SessionId);
 		}
 
-		Logger?.LogInformation("Auto begining Gemstone transaction.");
+		FileBasedLogger.LogInformation("Auto beginning Gemstone transaction.");
 	}
 
 	public void BasicAbortTransaction()
@@ -582,12 +614,12 @@ public sealed class GemStoneSession
 		{
 			_activity =
 				TransactionLevelActivitySource
-					.StartActivity("<<<<< Begining AUTOMATIC Gemstone Transaction on {sessionid} >>>>>");
+					.StartActivity("<<<<< Beginning AUTOMATIC Gemstone Transaction on {sessionid} >>>>>");
 
 			_activity?.AddTag("sessionid", SessionId);
 		}
 
-		FileBasedLogger.LogInformation("Auto begining Gemstone transaction.");
+		FileBasedLogger.LogInformation("Auto beginning Gemstone transaction.");
 		return commitSuccessful;
 	}
 
@@ -652,7 +684,7 @@ public sealed class GemStoneSession
 	{
 		if (HasError)
 		{
-			var anError = ProcessError(ref isError, isQuiet, null, showLowLevelErrors);
+			var anError = ProcessError(ref isError, isQuiet, showLowLevelErrors);
 			return anError;
 		}
 
@@ -708,6 +740,7 @@ public sealed class GemStoneSession
 					 """;
 
 				Disconnected?.Invoke(this);
+				// SW 2026-02-11 control flow no longer returns (this is a fatal situation)
 				throw new GemStoneException(errorNumber, message);
 			}
 
@@ -719,7 +752,14 @@ public sealed class GemStoneSession
 		{
 			isError = true;
 			var errorMessage = $"Guava Ops exception {errorNumber} received: {gemStoneErrorMessage}";
-			throw new GemStoneException(errorNumber, gemStoneErrorMessage);
+			FileBasedLogger.LogEvent(
+				DateTime.Now,
+				LOG_ENUM_ERROR_CATEGORY.System,
+				LOG_ENUM_ERROR_TYPE.Info,
+				errorMessage);
+
+			isError = true;
+			return errorMessage;
 		}
 		else if (errorNumber == 6008)
 		{
@@ -810,7 +850,7 @@ public sealed class GemStoneSession
 		// exceptionI should be an ops error at this point.
 		return ProcessErrorException(
 			exceptionI,
-			currentError.Context,
+			currentError,	// need the error number for logging SW 2026-02-11
 			eventMessage,
 			isQuiet,
 			ref isError);
@@ -818,9 +858,17 @@ public sealed class GemStoneSession
 		string GemstoneErrorOccured(ref bool errorFlag)
 		{
 			eventMessage = $"Gemstone error occured: {eventMessage}{gemStoneErrorMessage}";
+
+			FileBasedLogger.LogEvent(
+				DateTime.Now,
+				LOG_ENUM_ERROR_CATEGORY.System,
+				LOG_ENUM_ERROR_TYPE.Error,
+				eventMessage);
+
 			errorFlag = true;
-			throw new GemStoneException(errorNumber, eventMessage);
+			return eventMessage;
 		}
+
 
 		string StandardNonExceptionErrorMessage(ref bool errorFlag)
 		{ 
@@ -829,21 +877,30 @@ public sealed class GemStoneSession
 			EnableSignaledAbortError();
 
 			eventMessage = $" Network/session disconnection error.{eventMessage}{gemStoneErrorMessage}";
+
+			FileBasedLogger.LogEvent(
+				DateTime.Now,
+				LOG_ENUM_ERROR_CATEGORY.System,
+				LOG_ENUM_ERROR_TYPE.Error,
+				eventMessage);
+
 			errorFlag = true;
 			Disconnected?.Invoke(this);
-			throw new GemStoneException(errorNumber, eventMessage);
+			return eventMessage;
 		}
 	}
 
 	private string ProcessErrorException(
 		GemStoneObject exceptionI,
-		Oop process,
+		GemStoneErrorData error,
 		string baseEventMessage,
 		bool isQuiet,
 		ref bool isError
 	)
 	{
 		var eventMessage = $"{baseEventMessage}\r\n{exceptionI.ForeignPerform("displayString"u8).PrintString()}";
+		var errorNumber = error.Number;
+		var process = error.Context;
 
 		if (exceptionI.ForeignPerform("isError"u8).IsTrue())
 		{
@@ -886,7 +943,10 @@ public sealed class GemStoneSession
 
 			if (isQuiet || IsQuietACS)
 			{
-				FileBasedLogger.LogEvent(DateTime.Now, FileBasedLogger.System, FileBasedLogger.Info, eventMessage);
+				FileBasedLogger.LogEvent(DateTime.Now,
+					LOG_ENUM_ERROR_CATEGORY.System,
+					LOG_ENUM_ERROR_TYPE.Info,
+					eventMessage);
 			}
 			else
 			{
@@ -902,11 +962,33 @@ public sealed class GemStoneSession
 
 	#endregion Legacy API
 
+	// SW 2026-02-11 use Dispose to ensure timers don't fire after session quits
+	public void Dispose()
+	{
+		Cleanup();
+		GC.SuppressFinalize(this);
+	}
+
+	// finalizer only runs if Dispose was not called
 	~GemStoneSession()
 	{
+		Cleanup();
+	}
+
+	private void Cleanup()
+	{
+		// The _disposed check ensures we only run this once
+		if (Interlocked.Exchange(ref _disposedInt, 1) == 1) return;
+
+		// 1. Dispose the managed timer
+		_disTimer?.Dispose();
+
+		// 2. Dispose the Activity
 		if (_activity?.IsStopped == false)
 		{
 			_activity.Dispose();
 		}
 	}
+	private int _disposedInt = 0; // Use an int for thread-safe 'disposed' check
 }
+

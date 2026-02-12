@@ -2,7 +2,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using static CCKInf2U.GemStoneSession;
+using static CCKInf2U.ThreadSafe.GemStoneSession;
 
 namespace CCKInf2U.ThreadSafe;
 public class GemStoneCullableInteraction

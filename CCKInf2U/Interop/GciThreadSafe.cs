@@ -1,8 +1,11 @@
 using System;
+using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using static CCKInf2U.Interop.GciConstants;
 using static CCKInf2U.Interop.GciCommon;
 using System.Runtime.CompilerServices;
+using Util;
 
 namespace CCKInf2U.Interop;
 
@@ -20,7 +23,33 @@ internal static unsafe partial class GciThreadSafe
 	//private const string GciTsDLL = "libgcits-3.7.1-64.dll";
 	private const string GciTsDLL = "libgcits-3.7.4.3-64.dll";
 
+	static GciThreadSafe()
+	{
+		NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), (libraryName, assembly, searchPath) =>
+		{
+			FileBasedLogger.LogInformation("Attempting to load {libraryName}");
+			if (libraryName != GciTsDLL && !libraryName.StartsWith("libgcits")) 
+				return IntPtr.Zero;
 
+			var gemstonePath = Environment.GetEnvironmentVariable("GEMSTONE");
+			if (string.IsNullOrEmpty(gemstonePath)) return IntPtr.Zero;
+
+			var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
+			var libSubDir = isLinux ? "lib" : "bin";
+			var effectiveName = isLinux && libraryName.EndsWith(".dll") 
+				? libraryName.Replace(".dll", ".so") 
+				: libraryName;
+
+			var fullPath = Path.Combine(gemstonePath, libSubDir, effectiveName);
+
+			if (File.Exists(fullPath) && NativeLibrary.TryLoad(fullPath, out IntPtr handle))
+				return handle;
+
+			return IntPtr.Zero;
+		});
+	}
+
+	
 	#region Classes
 
 	[SkipLocalsInit]

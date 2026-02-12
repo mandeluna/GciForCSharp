@@ -1,8 +1,8 @@
-using System.Runtime.InteropServices;
-using Microsoft.Extensions.Options;
 using CCKInf2U;
+using CCKInf2U.ThreadSafe;
+using Microsoft.Extensions.Options;
 
-namespace GCI
+namespace GuavaOpsGCI
 {
     /// <summary>
     /// Service managed by the Web Container to handle GemStone requests.
@@ -12,6 +12,7 @@ namespace GCI
     {
         private readonly GciConfig _config;
         private readonly SemaphoreSlim _poolLock;
+        private GemStoneSession _session;
         private bool _initialized = false;
 
         public GemStoneService(IOptions<GciConfig> config)
@@ -29,9 +30,24 @@ namespace GCI
             {
                 if (_initialized) return;
 
-                GemStoneLoginData parameters = new GemStoneLoginData(_config.HostName, _config.GemServer, _config.NetLDI,
-                _config.Username, _config.Password, _config.HostUserName, _config.HostPassword);
-                GemStoneSession session = parameters.login();
+                // string Host          (gem server actually)
+                // string GemServer     (stone server)
+                // string NetLDI
+                // string Username
+                // string Password
+                // string HostUserName
+                // string HostPassword
+                GemStoneLoginData parameters = new GemStoneLoginData(
+                    _config.HostName,
+                    _config.StoneServer,    // not necessarily the GemServer
+                    _config.NetLDI,
+                    _config.GsUserName,
+                    _config.HostPassword,
+                    _config.GsUserName,
+                    _config.HostPassword,
+                    null);
+                _session = GemStoneSession.CreateGemStoneConnection(parameters.AccessLock);
+                _session.LoginAsUser(parameters);
 
                 _initialized = true;
             }
@@ -72,34 +88,30 @@ namespace GCI
                 return await Task.Run(() =>
                 {
                     // Ensure the session has an up-to-date view of the repository
-                    if (!GemStoneSession.currentSession.beginTransaction())
-                        throw new Exception("Failed to begin transaction.");
-
-                    long resultOop = GciWrapper.Execute(wrappedSource);
+                    _session.BeginTransaction();
+                    var gemStoneObject = _session.ExecuteString(wrappedSource);
                     
-                    if (resultOop == GciWrapper.OOP_NIL)
-                    {
-                        GciWrapper.GciAbort();
-                        if (GciWrapper.GciErr(out GciErrSType err))
-                            throw new Exception($"GemStone Error {err.number}: {err.message}");
-                        throw new Exception("Execution returned NIL (unspecified error).");
-                    }
-
                     if (requireCommit)
                     {
-                        if (!GciWrapper.GciCommit())
+                        if (!_session.CommitTransaction())
                         {
-                            GciWrapper.GciAbort();
+                            _session.AbortTransaction();
                             throw new Exception("GemStone Commit Conflict: Data was modified by another session.");
                         }
                     }
                     else
                     {
                         // For read-only, we abort to release any read-set tracking in the gem/stone
-                        GciWrapper.GciAbort();
+                        _session.AbortTransaction();
+                    }
+                    bool isWrongType = false;
+                    string stringResult = gemStoneObject.AsString(ref isWrongType);
+                    if (isWrongType)
+                    {
+                        throw new Exception("Expression result was not a string.");
                     }
 
-                    return GciWrapper.GetGsString(resultOop);
+                    return stringResult;
                 });
             }
             finally
@@ -110,7 +122,7 @@ namespace GCI
 
         public void Dispose()
         {
-            if (_initialized) GciWrapper.GciLogout();
+            if (_initialized) _session.Logout();
             _poolLock.Dispose();
         }
     }

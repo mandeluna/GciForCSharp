@@ -1,7 +1,9 @@
 using Serilog;
 using System;
+using System.IO;                               // For Path, File, Directory, FileInfo
+using System.Runtime.InteropServices;          // For RuntimeInformation and OSPlatform
 
-namespace CCKInf2U.Logging
+namespace Util
 {
     public enum LOG_ENUM_ERROR_TYPE
     {
@@ -52,9 +54,9 @@ namespace CCKInf2U.Logging
             // Write header if the file is new/empty
             try
             {
-                if (!File.Exists(logFileName) || new FileInfo(logFileName).Length == 0)
+                if (!File.Exists(logPath) || new FileInfo(logPath).Length == 0)
                 {
-                    File.WriteAllText(logFileName, "Timestamp,Category,Type,Message" + Environment.NewLine);
+                    File.WriteAllText(logPath, "Timestamp,Category,Type,Message" + Environment.NewLine);
                 }
             }
             catch (Exception)
@@ -64,7 +66,7 @@ namespace CCKInf2U.Logging
 
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
-                .WriteTo.File(logFileName, 
+                .WriteTo.File(logPath, 
                     rollingInterval: RollingInterval.Day,
                     hooks: null, // You can add hooks here for more complex CSV escaping if needed
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss},{Category},{Level},\"{Message:lj}\"{NewLine}{Exception}")
@@ -89,13 +91,14 @@ namespace CCKInf2U.Logging
             var log = Log.ForContext("Category", category.ToString());
             
             // Map our custom Type to Serilog's standard levels
+            // Use the ?? "" trick to satisfy the .NET 9 null-checker
             switch (type)
             {
-                case LOG_ENUM_ERROR_TYPE.Info: log.Information(message); break;
-                case LOG_ENUM_ERROR_TYPE.Warning: log.Warning(message); break;
-                case LOG_ENUM_ERROR_TYPE.Error: log.Error(message); break;
-                case LOG_ENUM_ERROR_TYPE.Severe: log.Fatal(message); break;
-                default: log.Debug(message); break;
+                case LOG_ENUM_ERROR_TYPE.Info: log.Information(message ?? ""); break;
+                case LOG_ENUM_ERROR_TYPE.Warning: log.Warning(message ?? ""); break;
+                case LOG_ENUM_ERROR_TYPE.Error: log.Error(message ?? ""); break;
+                case LOG_ENUM_ERROR_TYPE.Severe: log.Fatal(message ?? ""); break;
+                default: log.Debug(message ?? ""); break;
             }
         }
 
@@ -106,6 +109,9 @@ namespace CCKInf2U.Logging
         public static void SystemError(string msg) => 
             LogEvent(DateTime.Now, LOG_ENUM_ERROR_CATEGORY.System, LOG_ENUM_ERROR_TYPE.Error, msg);
 
+        public static void LogInformation(string msg) =>
+            Log.Information(msg ?? "");
+        
         public static void Shutdown() => Log.CloseAndFlush();
     }
 }

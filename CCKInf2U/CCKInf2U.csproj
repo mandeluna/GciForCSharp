@@ -78,37 +78,43 @@
 		<DefineConstants>$(DefineConstants);THREADSAFE;</DefineConstants>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<Compile Remove="Legacy/**/*.cs" Condition="$(DefineConstants.Contains('THREADSAFE'))"/>
-		<Compile Remove="ThreadSafe/**/*.cs" Condition="$(DefineConstants.Contains('LEGACY'))"/>
+	<!-- Windows Native Binaries -->
+	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<None Condition="'$(DefineConstants.Contains(`;LEGACY;`))'" Include="..\CCKDLLS\LooseDLLs\RT.dll">
+			<Link>RT.dll</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libgcits-3.7.4.3-64.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</None>
+		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libssl-3.7.4.3-64.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</None>
+		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\CCKDLLS\GemBuilderC_3.7.4.3\msvcr100.dll">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</None>
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(DefineConstants.Contains(`;LEGACY;`))'" Label="InteropCompilation">
-		<None Include="..\CCKDLLS\LooseDLLs\RT.dll">
+	<!-- Linux Native Binaries -->
+	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+		<!-- On Linux, we typically assume GemStone is installed and $GEMSTONE/lib is in LD_LIBRARY_PATH -->
+		<!-- We can also bundle them if needed, but we can link to $GEMSTONE/lib/gcirtlobj.o instead
+			 and it will find them at runtime if the $GEMSTONE environment variable is correctly set -->
+		<None Include="/path/to/linux/libgcitls-3.7.4.so" Condition="Exists('/path/to/linux/libgcitls-3.7.4.so')">
+			<Link>libgcitls.so</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
 
-	<PropertyGroup Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Label="InteropCompilation">
-		<DefaultItemExcludes>$(DefaultItemExcludes);Legacy/*.*;Interop/RT.cs;</DefaultItemExcludes>
-		<Visible>false</Visible>
+	<!-- Always exclude RT.cs on Linux, and on Windows if THREADSAFE is explicitly chosen -->
+	<PropertyGroup Label="InteropExclusions">
+		<DefaultItemExcludes Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefaultItemExcludes);Interop/RT.cs;Legacy/*.*</DefaultItemExcludes>
+		<DefaultItemExcludes Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'">$(DefaultItemExcludes);Legacy/*.*;Interop/RT.cs;</DefaultItemExcludes>
 	</PropertyGroup>
-
-	<ItemGroup Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Label="InteropCompilation">
-		<None Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libgcits-3.7.4.3-64.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Visible>false</Visible>
-		</None>
-		<None Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libssl-3.7.4.3-64.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Visible>false</Visible>
-		</None>
-		<None Include="..\CCKDLLS\GemBuilderC_3.7.4.3\msvcr100.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Visible>false</Visible>
-		</None>
-	</ItemGroup>
-
+	
 	<PropertyGroup Label="DefaultWarningSuppression">
 		<NoWarn>$(NoWarn);CS1591;IDE1006</NoWarn>
 	</PropertyGroup>

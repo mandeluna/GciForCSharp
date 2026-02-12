@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Ensure we are targeting 64-bit to match GemStone 64 libraries -->
     <Platforms>AnyCPU;x64</Platforms>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
@@ -28,7 +29,8 @@
   </ItemGroup>
 
   <ItemGroup>
-  		<ProjectReference Include="./CCKINF2U" />
+  		<ProjectReference Include="../CCKInf2U/CCKInf2U.csproj" />
+  		<ProjectReference Include="../Util/Util.csproj" />
   </ItemGroup> 
 
 </Project>

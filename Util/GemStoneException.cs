@@ -1,3 +1,5 @@
+using System;
+
 public class GemStoneException : Exception
 {
     public int ErrorNumber { get; }
