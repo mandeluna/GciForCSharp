@@ -80,19 +80,19 @@
 
 	<!-- Windows Native Binaries -->
 	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-		<None Condition="'$(DefineConstants.Contains(`;LEGACY;`))'" Include="..\CCKDLLS\LooseDLLs\RT.dll">
+		<None Condition="'$(DefineConstants.Contains(`;LEGACY;`))'" Include="..\..\GuavaDealerRiskCS\CCKDLLS\LooseDLLs\RT.dll">
 			<Link>RT.dll</Link>
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
-		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libgcits-3.7.4.3-64.dll">
+		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\..\GuavaDealerRiskCS\CCKDLLS\GemBuilderC_3.7.4.3\libgcits-3.7.4.3-64.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</None>
-		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\CCKDLLS\GemBuilderC_3.7.4.3\libssl-3.7.4.3-64.dll">
+		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\..\GuavaDealerRiskCS\CCKDLLS\GemBuilderC_3.7.4.3\libssl-3.7.4.3-64.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</None>
-		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\CCKDLLS\GemBuilderC_3.7.4.3\msvcr100.dll">
+		<None Condition="'$(DefineConstants.Contains(`;THREADSAFE;`))'" Include="..\..\GuavaDealerRiskCS\CCKDLLS\GemBuilderC_3.7.4.3\msvcr100.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</None>

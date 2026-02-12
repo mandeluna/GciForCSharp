@@ -106,7 +106,7 @@ public sealed class GemStoneSession
 		if (ShouldLogGemStoneErrors)
 		{
 			// ! This code should only be used in debug builds, but we'll include it in release for now.
-			FileBasedLogger.LogEvent(
+			CCKLogger.LogEvent(
 				LastError.When,
 				LOG_ENUM_ERROR_CATEGORY.System,
 				LOG_ENUM_ERROR_TYPE.Info,
@@ -144,7 +144,7 @@ public sealed class GemStoneSession
 			if (ShouldLogGemStoneErrors)
 			{
 				// ! This code should only be used in debug builds, but we'll include it in release for now.
-				FileBasedLogger.LogEvent(
+				CCKLogger.LogEvent(
 					LastError.When,
 					LOG_ENUM_ERROR_CATEGORY.System,
 					LOG_ENUM_ERROR_TYPE.Info,
@@ -464,6 +464,11 @@ public sealed class GemStoneSession
 				usernameBuffer,
 				passwordBuffer);
 
+		if (HasError)
+		{
+			throw new GemStoneException(LastError.Number, LastError.Reason);
+		}
+		
 		SessionId = sessionId;
 		Interlocked.Exchange(ref _badSessionCounter, 0);
 
@@ -514,7 +519,7 @@ public sealed class GemStoneSession
 				.StartActivity("<<<<< Beginning Gemstone Transaction on {sessionid} >>>>>");
 
 		_activity?.AddTag("sessionid", SessionId);
-		FileBasedLogger.LogInformation("Beginning Gemstone transaction.");
+		CCKLogger.LogInformation("Beginning Gemstone transaction.");
 
 		_ = Execute("Treasury prepareForBegin"u8); // TODO(CCK-3228): Is this necessary?
 
@@ -556,7 +561,7 @@ public sealed class GemStoneSession
 			_activity?.AddTag("sessionid", SessionId);
 		}
 
-		FileBasedLogger.LogInformation("Auto beginning Gemstone transaction.");
+		CCKLogger.LogInformation("Auto beginning Gemstone transaction.");
 	}
 
 	public void BasicAbortTransaction()
@@ -619,7 +624,7 @@ public sealed class GemStoneSession
 			_activity?.AddTag("sessionid", SessionId);
 		}
 
-		FileBasedLogger.LogInformation("Auto beginning Gemstone transaction.");
+		CCKLogger.LogInformation("Auto beginning Gemstone transaction.");
 		return commitSuccessful;
 	}
 
@@ -705,7 +710,7 @@ public sealed class GemStoneSession
 			return null;
 		}
 
-		// Mimicing the existing pattern - Get the latest error to process and clear it.
+		// Mimicking the existing pattern - Get the latest error to process and clear it.
 		// Same as "Check signal, take top error, ignore the rest."
 		// We have extra information in scope - but we only use what was available in the original system.
 
@@ -715,9 +720,7 @@ public sealed class GemStoneSession
 		var errorNumber = currentError.Number;
 		var gemStoneErrorMessage = currentError.Message ?? string.Empty;
 
-		#if DEBUG
-		Debug.Print($"CheckError= {errorNumber}  Msg= {gemStoneErrorMessage}");
-		#endif
+		CCKLogger.SystemError($"CheckError= {errorNumber}  Msg= {gemStoneErrorMessage}");
 
 		if (errorNumber is > 4000 and < 5000)
 		{
@@ -752,7 +755,7 @@ public sealed class GemStoneSession
 		{
 			isError = true;
 			var errorMessage = $"Guava Ops exception {errorNumber} received: {gemStoneErrorMessage}";
-			FileBasedLogger.LogEvent(
+			CCKLogger.LogEvent(
 				DateTime.Now,
 				LOG_ENUM_ERROR_CATEGORY.System,
 				LOG_ENUM_ERROR_TYPE.Info,
@@ -859,7 +862,7 @@ public sealed class GemStoneSession
 		{
 			eventMessage = $"Gemstone error occured: {eventMessage}{gemStoneErrorMessage}";
 
-			FileBasedLogger.LogEvent(
+			CCKLogger.LogEvent(
 				DateTime.Now,
 				LOG_ENUM_ERROR_CATEGORY.System,
 				LOG_ENUM_ERROR_TYPE.Error,
@@ -878,7 +881,7 @@ public sealed class GemStoneSession
 
 			eventMessage = $" Network/session disconnection error.{eventMessage}{gemStoneErrorMessage}";
 
-			FileBasedLogger.LogEvent(
+			CCKLogger.LogEvent(
 				DateTime.Now,
 				LOG_ENUM_ERROR_CATEGORY.System,
 				LOG_ENUM_ERROR_TYPE.Error,
@@ -909,7 +912,7 @@ public sealed class GemStoneSession
 
 			if (IsQuiet || IsQuietACS)
 			{
-				FileBasedLogger.SystemError(eventMessage);
+				CCKLogger.SystemError(eventMessage);
 			}
 			else
 			{
@@ -927,7 +930,7 @@ public sealed class GemStoneSession
 
 			if (isQuiet || IsQuietACS)
 			{
-				FileBasedLogger.DataWarning(eventMessage);
+				CCKLogger.DataWarning(eventMessage);
 			}
 			else
 			{
@@ -943,7 +946,7 @@ public sealed class GemStoneSession
 
 			if (isQuiet || IsQuietACS)
 			{
-				FileBasedLogger.LogEvent(DateTime.Now,
+				CCKLogger.LogEvent(DateTime.Now,
 					LOG_ENUM_ERROR_CATEGORY.System,
 					LOG_ENUM_ERROR_TYPE.Info,
 					eventMessage);

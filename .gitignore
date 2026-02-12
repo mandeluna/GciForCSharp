@@ -3,3 +3,4 @@ obj
 *.dylib
 .vscode
 .idea
+*.DotSettings.user

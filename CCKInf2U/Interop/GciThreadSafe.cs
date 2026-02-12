@@ -27,12 +27,14 @@ internal static unsafe partial class GciThreadSafe
 	{
 		NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), (libraryName, assembly, searchPath) =>
 		{
-			FileBasedLogger.LogInformation("Attempting to load {libraryName}");
+			CCKLogger.LogInformation("Attempting to load {libraryName}");
 			if (libraryName != GciTsDLL && !libraryName.StartsWith("libgcits")) 
 				return IntPtr.Zero;
 
 			var gemstonePath = Environment.GetEnvironmentVariable("GEMSTONE");
-			if (string.IsNullOrEmpty(gemstonePath)) return IntPtr.Zero;
+			if (string.IsNullOrEmpty(gemstonePath)) {
+				throw new Exception("GEMSTONE environment variable is not found");
+			}
 
 			var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 			var libSubDir = isLinux ? "lib" : "bin";

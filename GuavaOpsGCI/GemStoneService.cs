@@ -1,6 +1,7 @@
 using CCKInf2U;
 using CCKInf2U.ThreadSafe;
 using Microsoft.Extensions.Options;
+using Util;
 
 namespace GuavaOpsGCI
 {
@@ -31,7 +32,7 @@ namespace GuavaOpsGCI
                 if (_initialized) return;
 
                 // string Host          (gem server actually)
-                // string GemServer     (stone server)
+                // string GemServer     (stone name)
                 // string NetLDI
                 // string Username
                 // string Password
@@ -39,16 +40,17 @@ namespace GuavaOpsGCI
                 // string HostPassword
                 GemStoneLoginData parameters = new GemStoneLoginData(
                     _config.HostName,
-                    _config.StoneServer,    // not necessarily the GemServer
-                    _config.NetLDI,
+                    _config.StoneName,    // not necessarily the GemServer
+                    _config.NetLDI, 
                     _config.GsUserName,
-                    _config.HostPassword,
-                    _config.GsUserName,
+                    _config.GsPassword,
+                    _config.HostUserName,
                     _config.HostPassword,
                     null);
                 _session = GemStoneSession.CreateGemStoneConnection(parameters.AccessLock);
                 _session.LoginAsUser(parameters);
 
+                CCKLogger.LogInformation("Logged in to GemStone server");
                 _initialized = true;
             }
         }

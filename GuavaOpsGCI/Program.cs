@@ -3,8 +3,11 @@ using Microsoft.Extensions.Options;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 using Microsoft.AspNetCore.Mvc;
+using Util;
 
 var builder = WebApplication.CreateBuilder(args);
+
+CCKLogger.Initialize();
 
 // 1. Load config.yml
 var yamlContent = File.ReadAllText("config.yml");
@@ -35,7 +38,11 @@ app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.MapControllers();
 
-app.Run();
+var port = 5000;
+var url = String.Format($"http://0.0.0.0:{port}", port);
+Console.WriteLine($"[Server] is listening on port {port}.");
+
+app.Run(url);
 
 // --- Main GemStone API Controller ---
 
@@ -56,6 +63,7 @@ public class GemStoneController : ControllerBase
     [HttpGet("execute")]
     public async Task<IActionResult> ExecuteRead([FromQuery] string code)
     {
+        CCKLogger.LogInformation(("GET execute/{code}"));
         if (string.IsNullOrEmpty(code)) return BadRequest("Smalltalk code is required.");
 
         try
@@ -76,6 +84,7 @@ public class GemStoneController : ControllerBase
     [HttpPost("execute")]
     public async Task<IActionResult> ExecuteWrite([FromBody] string code)
     {
+        CCKLogger.LogInformation(("POST execute/{code}"));
         if (string.IsNullOrEmpty(code)) return BadRequest("Smalltalk code is required.");
 
         try
